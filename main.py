@@ -1,36 +1,37 @@
 from perfil import run_perfil
 from posts import run_posts
+from followers import run_followers, run_following
+from browser import close_browser
 import json
 
 def main():
     username = input("Ingresa el username: ").strip()
 
-    if not username:
-        print("❌ Username inválido")
-        return
+    print("\n🔎 Perfil...")
+    perfil = run_perfil(username)
 
-    print("\n🔎 Obteniendo perfil...")
-    perfil_data = run_perfil(username)
+    print("\n📥 Posts...")
+    posts = run_posts(username)
 
-    print("\n📥 Obteniendo posts...")
-    posts_data = run_posts(username)
+    print("\n👥 Seguidores...")
+    followers = run_followers(username, limit=30)
 
-    result = {
-        "perfil": perfil_data,
-        "posts": posts_data
+    print("\n👥 Seguidos...")
+    following = run_following(username, limit=30)
+
+    data = {
+        "perfil": perfil,
+        "posts": posts,
+        "followers": followers,
+        "following": following
     }
 
-    filename = f"{username}_data.json"
+    with open(f"{username}_data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
-    try:
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=4, ensure_ascii=False)
-
-        print(f"\n💾 Datos guardados en {filename}")
-
-    except Exception as e:
-        print("❌ Error guardando archivo:", e)
+    print("\n✅ Todo listo")
 
 
 if __name__ == "__main__":
     main()
+    close_browser()

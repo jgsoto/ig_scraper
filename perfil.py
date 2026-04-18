@@ -4,7 +4,7 @@ from browser import get_page
 def run_perfil(username: str):
     url = f"https://www.instagram.com/{username}/"
 
-    page, browser = get_page(url)
+    page, context = get_page(url)
 
     print("\n=== PERFIL ===")
 
@@ -26,8 +26,8 @@ def run_perfil(username: str):
         return data
 
     except Exception as e:
-        print("❌ Error:", e)
+        print("Error:", e)
         return None
 
     finally:
-        browser.close()
+        context.close()

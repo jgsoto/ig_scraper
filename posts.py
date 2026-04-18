@@ -66,7 +66,7 @@ def run_posts(username, max_pages=3):
     cookies = load_cookies_dict()
 
     if not cookies:
-        print("❌ No hay cookies")
+        print("No hay cookies")
         return []
 
     headers = build_headers(username, cookies)
@@ -75,7 +75,7 @@ def run_posts(username, max_pages=3):
     all_posts = []
 
     for page in range(max_pages):
-        print(f"\n📄 Página {page + 1}")
+        print(f"\nPágina {page + 1}")
 
         data = build_data(username, after)
 
@@ -87,14 +87,14 @@ def run_posts(username, max_pages=3):
         )
 
         if "application/json" not in response.headers.get("Content-Type", ""):
-            print("❌ Bloqueado o respuesta inválida")
+            print("Bloqueado o respuesta inválida")
             print(response.text[:200])
             break
 
         result = response.json()
 
         if not result.get("data"):
-            print("❌ Error en respuesta:", result)
+            print("Error en respuesta:", result)
             break
 
         timeline = result["data"]["xdt_api__v1__feed__user_timeline_graphql_connection"]
