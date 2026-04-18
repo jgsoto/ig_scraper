@@ -1,37 +1,70 @@
+import json
+from browser import get_page, close_browser
 from perfil import run_perfil
 from posts import run_posts
 from followers import run_followers, run_following
-from browser import close_browser
-import json
+
 
 def main():
     username = input("Ingresa el username: ").strip()
 
-    print("\n🔎 Perfil...")
-    perfil = run_perfil(username)
+    page, context = get_page("https://www.instagram.com")
 
-    print("\n📥 Posts...")
-    posts = run_posts(username)
+    try:
+        data = {}
 
-    print("\n👥 Seguidores...")
-    followers = run_followers(username, limit=30)
+        # =====================
+        # PERFIL
+        # =====================
+        try:
+            print("\nPerfil...")
+            data["perfil"] = run_perfil(page, username)
+        except Exception as e:
+            print("Error perfil:", e)
+            data["perfil"] = None
 
-    print("\n👥 Seguidos...")
-    following = run_following(username, limit=30)
+        # =====================
+        # POSTS
+        # =====================
+        try:
+            print("\nPosts...")
+            data["posts"] = run_posts(page, username)
+        except Exception as e:
+            print("Error posts:", e)
+            data["posts"] = []
 
-    data = {
-        "perfil": perfil,
-        "posts": posts,
-        "followers": followers,
-        "following": following
-    }
+        # =====================
+        # FOLLOWERS
+        # =====================
+        try:
+            print("\nSeguidores...")
+            data["followers"] = run_followers(page, username, limit=10)
+        except Exception as e:
+            print("Error followers:", e)
+            data["followers"] = []
 
-    with open(f"{username}_data.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+        # =====================
+        # FOLLOWING
+        # =====================
+        try:
+            print("\nSeguidos...")
+            data["following"] = run_following(page, username, limit=10)
+        except Exception as e:
+            print("Error following:", e)
+            data["following"] = []
 
-    print("\n✅ Todo listo")
+        # =====================
+        # GUARDAR
+        # =====================
+        with open(f"{username}_data.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+
+        print("\n✅ Todo listo")
+
+    finally:
+        context.close()
+        close_browser()
 
 
 if __name__ == "__main__":
     main()
-    close_browser()

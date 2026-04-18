@@ -28,90 +28,95 @@ def open_follow_dialog(page, username, group="followers"):
     return False
 
 
-def scroll_and_collect(page, limit=50):
+def scroll_and_collect(page, limit=5):
     import time
 
     users = set()
 
     page.wait_for_selector("div[role='dialog']", timeout=10000)
-
     dialog = page.locator("div[role='dialog']")
 
+    # 🔑 encontrar el div scrolleable real
     scroll_box = None
+    divs = dialog.locator("div")
+    count = divs.count()
 
-    for i in range(dialog.locator("div").count()):
-        el = dialog.locator("div").nth(i)
+    for i in range(count):
+        el = divs.nth(i)
         try:
-            overflow = el.evaluate("el => window.getComputedStyle(el).overflowY")
-            if overflow in ["scroll", "auto"]:
+            before = el.evaluate("el => el.scrollTop")
+            el.evaluate("el => el.scrollTop += 100")
+            after = el.evaluate("el => el.scrollTop")
+
+            if after > before:
                 scroll_box = el
                 break
         except:
             continue
 
     if not scroll_box:
-        raise Exception("No se encontró contenedor scrolleable")
+        raise Exception("No se encontró contenedor scrolleable REAL")
 
-    last_height = 0
+    same_count = 0
 
     while len(users) < limit:
-        links = scroll_box.locator("a")
+        prev_count = len(users)
+
+        # 🔑 SELECTOR REAL (como Selenium)
+        links = scroll_box.locator(
+            "a[href^='/']:not([href*='/explore']):not([href*='/p/'])"
+        )
 
         for i in range(links.count()):
             try:
-                username = links.nth(i).inner_text().strip()
-                if username and len(username) <= 30:
-                    users.add(username)
+                el = links.nth(i)
+
+                username = (el.inner_text() or "").strip()
+
+                if not username:
+                    continue
+
+                if not USERNAME_RE.match(username):
+                    continue
+
+                users.add(username)
+
             except:
                 continue
 
         try:
-            scroll_box.evaluate("el => el.scrollTop = el.scrollHeight")
+            scroll_box.evaluate("el => el.scrollBy(0, 400)")
         except:
-            print("Error en scroll, reintentando...")
             time.sleep(2)
             continue
 
-        time.sleep(2)
+        time.sleep(1.5)
 
-        try:
-            new_height = scroll_box.evaluate("el => el.scrollHeight")
-        except:
+        if len(users) == prev_count:
+            same_count += 1
+        else:
+            same_count = 0
+
+        if same_count >= 5:
             break
-
-        if new_height == last_height:
-            break
-
-        last_height = new_height
 
     return list(users)[:limit]
 
-def run_followers(username, limit=10):
-    page, context = get_page("https://www.instagram.com")
+def run_followers(page, username, limit):
+    if not open_follow_dialog(page, username, "followers"):
+        return []
+    
+    followers = scroll_and_collect(page, limit)
 
-    try:
-        if not open_follow_dialog(page, username, "followers"):
-            return []
-
-        return scroll_and_collect(page, limit)
-
-    finally:
-        context.close()
+    return followers
 
 
-def run_following(username, limit=10):
-    page, context = get_page("https://www.instagram.com")
+def run_following(page, username, limit):
 
-    try:
-        print(f"\n👥 Obteniendo seguidos de {username}...")
+    if not open_follow_dialog(page, username, "following"):
+        print("No se pudo abrir seguidos")
+        return []
 
-        if not open_follow_dialog(page, username, "following"):
-            print("No se pudo abrir seguidos")
-            return []
+    following = scroll_and_collect(page, limit)
 
-        users = scroll_and_collect(page, limit)
-
-        return users
-
-    finally:
-        context.close()
+    return following
