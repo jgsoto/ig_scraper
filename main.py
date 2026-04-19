@@ -1,4 +1,5 @@
 import json
+from engagement import calculate_engagement
 from browser import get_page, close_browser
 from perfil import run_perfil
 from posts import run_posts
@@ -11,7 +12,7 @@ def mostrar_menu():
     print("2. Posts")
     print("3. Seguidores")
     print("4. Seguidos")
-    print("5. Todo")
+    print("5. Engagement")
     print("0. Salir")
 
 
@@ -44,10 +45,7 @@ def main():
                 print("Saliendo...")
                 break
 
-            # =====================
-            # PERFIL
-            # =====================
-            if opcion in ["1", "5"]:
+            if opcion == "1":
                 try:
                     print("\nPerfil...")
                     data["perfil"] = run_perfil(page, username)
@@ -55,37 +53,27 @@ def main():
                     print("Error perfil:", e)
                     data["perfil"] = None
 
-            # =====================
-            # POSTS
-            # =====================
-            if opcion in ["2", "5"]:
+            if opcion == "2":
                 try:
                     cantidad_posts = pedir_numero("¿Cuántos posts quieres?", 12)
 
-                    # 🔥 límite seguro
                     cantidad_posts = min(cantidad_posts, 100)
 
-                    # 🔥 convertir posts → páginas
                     max_pages = max(1, (cantidad_posts // 12) + 1)
 
                     print(f"\nPosts (~{cantidad_posts})...")
                     posts = run_posts(username, max_pages=max_pages)
 
-                    # 🔥 recortar exacto
                     data["posts"] = posts[:cantidad_posts]
 
                 except Exception as e:
                     print("Error posts:", e)
                     data["posts"] = []
 
-            # =====================
-            # FOLLOWERS
-            # =====================
-            if opcion in ["3", "5"]:
+            if opcion == "3":
                 try:
                     limite = pedir_numero("¿Cuántos seguidores quieres?", 10)
 
-                    # 🔥 límite seguro
                     limite = min(limite, 50)
 
                     print("\nSeguidores...")
@@ -95,14 +83,10 @@ def main():
                     print("Error followers:", e)
                     data["followers"] = []
 
-            # =====================
-            # FOLLOWING
-            # =====================
-            if opcion in ["4", "5"]:
+            if opcion == "4":
                 try:
                     limite = pedir_numero("¿Cuántos seguidos quieres?", 10)
 
-                    # 🔥 límite seguro
                     limite = min(limite, 50)
 
                     print("\nSeguidos...")
@@ -112,13 +96,37 @@ def main():
                     print("Error following:", e)
                     data["following"] = []
 
-            # =====================
-            # GUARDAR
-            # =====================
+            if opcion == "5":
+                try:
+                    from engagement import calculate_engagement
+
+                    if "posts" not in data or not data["posts"]:
+                        print("Primero debes obtener posts")
+                        continue
+
+                    followers = None
+
+                    # 🔥 obtener followers del perfil
+                    if "perfil" in data and data["perfil"]:
+                        followers = data["perfil"].get("followers")
+
+                    if not followers:
+                        print("No hay datos de followers, ejecuta opción 1 (perfil)")
+
+                    print("\nCalculando engagement...")
+                    data["engagement"] = calculate_engagement(
+                        data["posts"], followers=followers
+                    )
+
+                    print("Engagement calculado")
+
+                except Exception as e:
+                    print("Error engagement:", e)
+
             with open(f"{username}_data.json", "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
 
-            print("\n✅ Datos guardados correctamente")
+            print("\nDatos guardados correctamente")
 
     finally:
         context.close()
