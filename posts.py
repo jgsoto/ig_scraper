@@ -63,7 +63,7 @@ def parse_post(node):
     if taken_at:
         try:
             date_str = datetime.fromtimestamp(taken_at).strftime('%Y-%m-%d %H:%M:%S')
-        except:
+        except Exception:
             pass
 
     caption = node.get("caption") or {}
@@ -79,6 +79,23 @@ def parse_post(node):
     }
 
 
+def request_with_retry(session, url, headers, cookies, data, retries=3):
+    for attempt in range(retries):
+        try:
+            response = session.post(
+                url,
+                headers=headers,
+                cookies=cookies,
+                data=data,
+                timeout=15
+            )
+            return response
+        except requests.RequestException as e:
+            print(f"[-] Error de red (intento {attempt+1}): {e}")
+            time.sleep(2)
+    return None
+
+
 def run_posts(username, max_pages=3):
     cookies = load_cookies_dict()
 
@@ -87,38 +104,25 @@ def run_posts(username, max_pages=3):
         return []
 
     headers = build_headers(username, cookies)
-    after = None
-    all_posts = []
-    seen = set()  # 🔥 evitar duplicados
 
     session = requests.Session()
 
+    after = None
+    all_posts = []
+    seen = set()
+
     for page in range(max_pages):
-        print(f"[+] Solicitando página {page + 1}...")
+        print(f"[+] Página {page + 1}")
 
-        # 🔥 reintentos automáticos
-        response = None
-        for attempt in range(3):
-            try:
-                data = build_data(username, after)
+        data = build_data(username, after)
 
-                response = session.post(
-                    GRAPHQL_URL,
-                    headers=headers,
-                    cookies=cookies,
-                    data=data,
-                    timeout=15
-                )
-                break
-            except Exception as e:
-                print(f"[-] Error de red (intento {attempt+1}):", e)
-                time.sleep(2)
+        response = request_with_retry(
+            session, GRAPHQL_URL, headers, cookies, data
+        )
 
         if not response:
             print("[-] Fallaron todos los intentos")
             break
-
-        content_type = response.headers.get("Content-Type", "")
 
         # 🔴 rate limit
         if response.status_code == 429:
@@ -126,8 +130,10 @@ def run_posts(username, max_pages=3):
             time.sleep(8)
             continue
 
-        # 🔴 bloqueos comunes
+        content_type = response.headers.get("Content-Type", "")
+
         text_lower = response.text.lower()
+
         if "checkpoint" in text_lower:
             print("[-] Instagram pide verificación")
             break
@@ -140,9 +146,10 @@ def run_posts(username, max_pages=3):
             print(f"[-] Respuesta inválida (Status: {response.status_code})")
             break
 
+        # ✅ FIX CLAVE (robusto)
         try:
             result = response.json()
-        except:
+        except Exception:
             print("[-] Error parseando JSON")
             break
 
@@ -152,11 +159,12 @@ def run_posts(username, max_pages=3):
             print("[-] Error en la estructura:", result)
             break
 
-        # 🔥 fallback por si cambia estructura
+        # 🔥 fallback robusto
         timeline = (
             data_json.get("xdt_api__v1__feed__user_timeline_graphql_connection")
+            or (data_json.get("user") or {}).get("edge_owner_to_timeline_media")
             or data_json.get("user")
-            or data_json
+            or {}
         )
 
         if not timeline:
@@ -176,7 +184,6 @@ def run_posts(username, max_pages=3):
 
             code = node.get("code")
 
-            # 🔥 evitar duplicados
             if code in seen:
                 continue
 
@@ -184,7 +191,7 @@ def run_posts(username, max_pages=3):
 
             try:
                 all_posts.append(parse_post(node))
-            except:
+            except Exception:
                 continue
 
         page_info = timeline.get("page_info", {})
