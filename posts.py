@@ -1,4 +1,6 @@
 import json
+import time
+import random
 from datetime import datetime
 from urllib.parse import quote
 
@@ -16,7 +18,6 @@ BASE_DATA = (
 
 
 def build_headers(username, cookies):
-    """Construye los encabezados necesarios para la petición GraphQL."""
     return {
         "accept": "*/*",
         "accept-language": "es-US,es-419;q=0.9,es;q=0.8,en;q=0.7",
@@ -36,7 +37,6 @@ def build_headers(username, cookies):
 
 
 def build_data(username, after=None):
-    """Prepara el cuerpo de la solicitud con las variables de paginación."""
     variables = {
         "data": {
             "count": 12,
@@ -57,16 +57,20 @@ def build_data(username, after=None):
 
 
 def parse_post(node):
-    """Extrae y formatea la información relevante de un post individual."""
     taken_at = node.get("taken_at")
     date_str = "N/A"
-    
+
     if taken_at:
-        date_str = datetime.fromtimestamp(taken_at).strftime('%Y-%m-%d %H:%M:%S')
+        try:
+            date_str = datetime.fromtimestamp(taken_at).strftime('%Y-%m-%d %H:%M:%S')
+        except:
+            pass
+
+    caption = node.get("caption") or {}
 
     return {
-        "url": f"https://www.instagram.com/p/{node['code']}/",
-        "caption": node["caption"]["text"] if node.get("caption") else "Sin texto",
+        "url": f"https://www.instagram.com/p/{node.get('code')}/",
+        "caption": caption.get("text", "Sin texto"),
         "likes": node.get("like_count", 0),
         "comments": node.get("comment_count", 0),
         "views": node.get("play_count", "N/A"),
@@ -76,7 +80,6 @@ def parse_post(node):
 
 
 def run_posts(username, max_pages=3):
-    """Función principal para iterar sobre las páginas de posts del perfil."""
     cookies = load_cookies_dict()
 
     if not cookies:
@@ -86,43 +89,117 @@ def run_posts(username, max_pages=3):
     headers = build_headers(username, cookies)
     after = None
     all_posts = []
+    seen = set()  # 🔥 evitar duplicados
+
+    session = requests.Session()
 
     for page in range(max_pages):
         print(f"[+] Solicitando página {page + 1}...")
 
-        data = build_data(username, after)
-        response = requests.post(
-            GRAPHQL_URL,
-            headers=headers,
-            cookies=cookies,
-            data=data
+        # 🔥 reintentos automáticos
+        response = None
+        for attempt in range(3):
+            try:
+                data = build_data(username, after)
+
+                response = session.post(
+                    GRAPHQL_URL,
+                    headers=headers,
+                    cookies=cookies,
+                    data=data,
+                    timeout=15
+                )
+                break
+            except Exception as e:
+                print(f"[-] Error de red (intento {attempt+1}):", e)
+                time.sleep(2)
+
+        if not response:
+            print("[-] Fallaron todos los intentos")
+            break
+
+        content_type = response.headers.get("Content-Type", "")
+
+        # 🔴 rate limit
+        if response.status_code == 429:
+            print("[-] Rate limit, esperando...")
+            time.sleep(8)
+            continue
+
+        # 🔴 bloqueos comunes
+        text_lower = response.text.lower()
+        if "checkpoint" in text_lower:
+            print("[-] Instagram pide verificación")
+            break
+
+        if "login" in text_lower:
+            print("[-] Sesión inválida")
+            break
+
+        if "application/json" not in content_type:
+            print(f"[-] Respuesta inválida (Status: {response.status_code})")
+            break
+
+        try:
+            result = response.json()
+        except:
+            print("[-] Error parseando JSON")
+            break
+
+        data_json = result.get("data")
+
+        if not data_json:
+            print("[-] Error en la estructura:", result)
+            break
+
+        # 🔥 fallback por si cambia estructura
+        timeline = (
+            data_json.get("xdt_api__v1__feed__user_timeline_graphql_connection")
+            or data_json.get("user")
+            or data_json
         )
 
-        # Validación de respuesta
-        content_type = response.headers.get("Content-Type", "")
-        if "application/json" not in content_type:
-            print(f"[-] Bloqueado o respuesta inválida (Status: {response.status_code})")
+        if not timeline:
+            print("[-] Timeline no encontrado")
             break
 
-        result = response.json()
-        data_json = result.get("data")
-        
-        if not data_json:
-            print("[-] Error en la estructura de la respuesta:", result)
+        edges = timeline.get("edges", [])
+
+        if not edges:
+            print("[i] No hay más posts")
             break
 
-        # Acceso a la conexión de la línea de tiempo
-        timeline = data_json["xdt_api__v1__feed__user_timeline_graphql_connection"]
-        
-        for edge in timeline.get("edges", []):
-            all_posts.append(parse_post(edge["node"]))
+        for edge in edges:
+            node = edge.get("node")
+            if not node:
+                continue
+
+            code = node.get("code")
+
+            # 🔥 evitar duplicados
+            if code in seen:
+                continue
+
+            seen.add(code)
+
+            try:
+                all_posts.append(parse_post(node))
+            except:
+                continue
 
         page_info = timeline.get("page_info", {})
+
         if not page_info.get("has_next_page"):
             print("[i] No hay más páginas disponibles.")
             break
 
         after = page_info.get("end_cursor")
 
-    # Retornar posts ordenados por fecha descendente
-    return sorted(all_posts, key=lambda x: x.get("timestamp") or 0, reverse=True)
+        # 🔥 delay humano
+        time.sleep(random.uniform(1.5, 3.0))
+
+    return sorted(
+        all_posts,
+        key=lambda x: x.get("timestamp") or 0,
+        reverse=True
+    )

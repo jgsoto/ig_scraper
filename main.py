@@ -28,7 +28,7 @@ def main():
         # =====================
         try:
             print("\nPosts...")
-            data["posts"] = run_posts(page, username)
+            data["posts"] = run_posts(username, max_pages=1)
         except Exception as e:
             print("Error posts:", e)
             data["posts"] = []
