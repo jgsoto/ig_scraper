@@ -124,7 +124,6 @@ def run_posts(username, max_pages=3):
             print("[-] Fallaron todos los intentos")
             break
 
-        # 🔴 rate limit
         if response.status_code == 429:
             print("[-] Rate limit, esperando...")
             time.sleep(8)
@@ -146,7 +145,6 @@ def run_posts(username, max_pages=3):
             print(f"[-] Respuesta inválida (Status: {response.status_code})")
             break
 
-        # ✅ FIX CLAVE (robusto)
         try:
             result = response.json()
         except Exception:
@@ -159,7 +157,6 @@ def run_posts(username, max_pages=3):
             print("[-] Error en la estructura:", result)
             break
 
-        # 🔥 fallback robusto
         timeline = (
             data_json.get("xdt_api__v1__feed__user_timeline_graphql_connection")
             or (data_json.get("user") or {}).get("edge_owner_to_timeline_media")
@@ -202,7 +199,6 @@ def run_posts(username, max_pages=3):
 
         after = page_info.get("end_cursor")
 
-        # 🔥 delay humano
         time.sleep(random.uniform(1.5, 3.0))
 
     return sorted(
