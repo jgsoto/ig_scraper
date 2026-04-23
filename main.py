@@ -69,21 +69,9 @@ def main():
                     posts = run_posts(username, max_pages=max_pages)
 
                     posts = posts[:cantidad_posts]
-
-                    for i, post in enumerate(posts):
-                        print(f"\n[+] ({i+1}/{len(posts)}) Comentarios de: {post['shortcode']}")
-
-                        try:
-                            comments = get_comments_playwright(post["url"])
-                            post["comments_data"] = comments
-                        except Exception as e:
-                            print("Error comentarios:", e)
-                            post["comments_data"] = []
-
-                        time.sleep(random.uniform(3, 6))
-
+                    
                     data["posts"] = posts
-
+   
                 except Exception as e:
                     print("Error posts:", e)
                     data["posts"] = []

@@ -185,7 +185,6 @@ def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
             try:
                 post_data = parse_post(node)
 
-                # 🔥 NUEVO: Obtener comentarios con Playwright
                 if get_comments:
                     try:
                         post_url = post_data["url"]
@@ -194,14 +193,14 @@ def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
 
                         comments = get_comments_playwright(
                             page,
-                            max_comments=max_comments
+                            max_comments=max_comments,
+                            username=username
                         )
 
                         post_data["comments"] = comments
 
                         context.close()
 
-                        # evitar bloqueo
                         time.sleep(random.uniform(2, 4))
 
                     except Exception as e:
@@ -228,42 +227,93 @@ def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
         key=lambda x: x.get("timestamp") or 0,
         reverse=True
     )
+    
+def is_time(text):
+    return any(x in text for x in ["sem", "h", "d", "min"])
 
-def get_comments_playwright(page, max_comments=3):
+
+def is_noise(text):
+    ruido = [
+        "Me gusta", "Responder", "Ver", "Editado",
+        "Explorar", "Búsqueda", "Mensajes", "Más",
+        "También de Meta", "Inicio", "Perfil"
+    ]
+    return any(r in text for r in ruido)
+
+
+def clean_texts(spans):
+    texts = []
+
+    for span in spans:
+        try:
+            t = span.inner_text().strip()
+
+            if not t:
+                continue
+
+            if is_noise(t):
+                continue
+
+            texts.append(t)
+
+        except:
+            continue
+
+    return texts
+
+def get_comments_playwright(page, max_comments=5, username=""):
     comments = []
+    print("USERNAME RECIBIDO:", username)
+
     try:
-        page.wait_for_selector("ul", timeout=10000)
-        
-        page.mouse.wheel(0, 1000)
-        page.wait_for_timeout(2000)
-        
-        items = page.query_selector_all("ul li")
-        
-        for item in items:
+
+        container = page.query_selector("main")
+        spans = container.query_selector_all("span")
+
+        texts = clean_texts(spans)
+
+        for i in range(len(texts)):
             try:
-                spans = item.query_selector_all("span")
-                if len(spans) < 2:
-                    continue
-                
-                user = spans[0].inner_text().strip()
-                text = spans[1].inner_text().strip()
-                
-                if not user or not text:
-                    continue
-                
-                if text.lower() in ["like", "reply"]:
-                    continue
-                
-                comments.append({
-                    "user": user, 
-                    "text": text
-                })
-                
-                if len(comments) >= max_comments:
-                    break
+                if is_time(texts[i]):
+
+                    user = texts[i - 1] if i > 0 else ""
+                    comment = texts[i + 1] if i + 1 < len(texts) else ""
+
+                    if not user or not comment:
+                        continue
+
+                    basura = ["•", "y", "Responder", "Ver", "Me gusta"]
+                    if user in basura or comment in basura:
+                        continue
+
+                    if len(comment) > 150:
+                        continue
+                    
+                    print(f"user: '{user}' | username: '{username}'")
+                    if user == username:
+                        continue
+
+                    if user == comment:
+                        continue
+
+                    if " " in user and len(user.split()) > 2:
+                        continue
+
+                    if is_time(user):
+                        continue
+
+                    comments.append({
+                        "user": user,
+                        "text": comment
+                    })
+
+                    if len(comments) >= max_comments:
+                        break
+
             except:
                 continue
-    except:
-        pass
-        
+
+    except Exception as e:
+        print("Error:", e)
+
     return comments
