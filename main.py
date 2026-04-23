@@ -1,10 +1,14 @@
 import json
+import time
+import random
+from cookies import load_cookies_playwright
 from engagement import calculate_engagement
 from browser import get_page, close_browser
 from perfil import run_perfil
-from posts import run_posts
+from posts import run_posts, get_comments_playwright
 from followers import run_followers, run_following
 
+cookies = load_cookies_playwright()
 
 def mostrar_menu():
     print("\n=== MENÚ ===")
@@ -64,7 +68,21 @@ def main():
                     print(f"\nPosts (~{cantidad_posts})...")
                     posts = run_posts(username, max_pages=max_pages)
 
-                    data["posts"] = posts[:cantidad_posts]
+                    posts = posts[:cantidad_posts]
+
+                    for i, post in enumerate(posts):
+                        print(f"\n[+] ({i+1}/{len(posts)}) Comentarios de: {post['shortcode']}")
+
+                        try:
+                            comments = get_comments_playwright(post["url"])
+                            post["comments_data"] = comments
+                        except Exception as e:
+                            print("Error comentarios:", e)
+                            post["comments_data"] = []
+
+                        time.sleep(random.uniform(3, 6))
+
+                    data["posts"] = posts
 
                 except Exception as e:
                     print("Error posts:", e)
@@ -98,7 +116,6 @@ def main():
 
             if opcion == "5":
                 try:
-                    from engagement import calculate_engagement
 
                     if "posts" not in data or not data["posts"]:
                         print("Primero debes obtener posts")

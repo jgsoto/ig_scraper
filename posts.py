@@ -5,9 +5,10 @@ from datetime import datetime
 from urllib.parse import quote
 
 import requests
+from browser import get_page
 from cookies import load_cookies_dict
+from playwright.sync_api import sync_playwright
 
-# Configuración Global
 GRAPHQL_URL = "https://www.instagram.com/graphql/query"
 DOC_ID = "27621586024097412"
 
@@ -15,7 +16,6 @@ BASE_DATA = (
     "av=17841478027466950&__d=www&__user=0&__a=1&__req=5&"
     "__hs=20560.HYP%3Ainstagram_web_pkg.2.1...0&dpr=1&__ccg=GOOD&__rev=1037589879"
 )
-
 
 def build_headers(username, cookies):
     return {
@@ -34,7 +34,6 @@ def build_headers(username, cookies):
         "x-ig-max-touch-points": "0",
         "x-root-field-name": "xdt_api__v1__feed__user_timeline_graphql_connection",
     }
-
 
 def build_data(username, after=None):
     variables = {
@@ -55,7 +54,6 @@ def build_data(username, after=None):
     json_vars = quote(json.dumps(variables))
     return f"{BASE_DATA}&variables={json_vars}&doc_id={DOC_ID}"
 
-
 def parse_post(node):
     taken_at = node.get("taken_at")
     date_str = "N/A"
@@ -63,21 +61,21 @@ def parse_post(node):
     if taken_at:
         try:
             date_str = datetime.fromtimestamp(taken_at).strftime('%Y-%m-%d %H:%M:%S')
-        except Exception:
+        except:
             pass
 
     caption = node.get("caption") or {}
 
     return {
+        "shortcode": node.get("code"),
         "url": f"https://www.instagram.com/p/{node.get('code')}/",
         "caption": caption.get("text", "Sin texto"),
         "likes": node.get("like_count", 0),
-        "comments": node.get("comment_count", 0),
+        "comments_count": node.get("comment_count", 0),
         "views": node.get("play_count", "N/A"),
         "timestamp": taken_at,
         "date": date_str
     }
-
 
 def request_with_retry(session, url, headers, cookies, data, retries=3):
     for attempt in range(retries):
@@ -95,8 +93,7 @@ def request_with_retry(session, url, headers, cookies, data, retries=3):
             time.sleep(2)
     return None
 
-
-def run_posts(username, max_pages=3):
+def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
     cookies = load_cookies_dict()
 
     if not cookies:
@@ -130,7 +127,6 @@ def run_posts(username, max_pages=3):
             continue
 
         content_type = response.headers.get("Content-Type", "")
-
         text_lower = response.text.lower()
 
         if "checkpoint" in text_lower:
@@ -187,7 +183,33 @@ def run_posts(username, max_pages=3):
             seen.add(code)
 
             try:
-                all_posts.append(parse_post(node))
+                post_data = parse_post(node)
+
+                # 🔥 NUEVO: Obtener comentarios con Playwright
+                if get_comments:
+                    try:
+                        post_url = post_data["url"]
+
+                        page, context = get_page(post_url, headless=True)
+
+                        comments = get_comments_playwright(
+                            page,
+                            max_comments=max_comments
+                        )
+
+                        post_data["comments"] = comments
+
+                        context.close()
+
+                        # evitar bloqueo
+                        time.sleep(random.uniform(2, 4))
+
+                    except Exception as e:
+                        print(f"[!] Error obteniendo comentarios: {e}")
+                        post_data["comments"] = []
+
+                all_posts.append(post_data)
+
             except Exception:
                 continue
 
@@ -206,3 +228,42 @@ def run_posts(username, max_pages=3):
         key=lambda x: x.get("timestamp") or 0,
         reverse=True
     )
+
+def get_comments_playwright(page, max_comments=3):
+    comments = []
+    try:
+        page.wait_for_selector("ul", timeout=10000)
+        
+        page.mouse.wheel(0, 1000)
+        page.wait_for_timeout(2000)
+        
+        items = page.query_selector_all("ul li")
+        
+        for item in items:
+            try:
+                spans = item.query_selector_all("span")
+                if len(spans) < 2:
+                    continue
+                
+                user = spans[0].inner_text().strip()
+                text = spans[1].inner_text().strip()
+                
+                if not user or not text:
+                    continue
+                
+                if text.lower() in ["like", "reply"]:
+                    continue
+                
+                comments.append({
+                    "user": user, 
+                    "text": text
+                })
+                
+                if len(comments) >= max_comments:
+                    break
+            except:
+                continue
+    except:
+        pass
+        
+    return comments
