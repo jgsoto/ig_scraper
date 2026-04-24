@@ -36,7 +36,6 @@ def scroll_and_collect(page, limit=5):
     page.wait_for_selector("div[role='dialog']", timeout=10000)
     dialog = page.locator("div[role='dialog']")
 
-    # 🔑 encontrar el div scrolleable real
     scroll_box = None
     divs = dialog.locator("div")
     count = divs.count()

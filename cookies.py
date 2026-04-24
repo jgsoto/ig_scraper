@@ -3,7 +3,7 @@ import os
 
 def load_cookies_dict():
     if not os.path.exists("cookies.json"):
-        print("⚠️ No se encontró cookies.json")
+        print("No se encontró cookies.json")
         return {}
 
     with open("cookies.json", "r", encoding="utf-8") as f:

@@ -1,5 +1,4 @@
 from parser import extract_stats, extract_bio
-from browser import get_page
 
 def run_perfil(page, username: str):
     url = f"https://www.instagram.com/{username}/"
@@ -27,5 +26,5 @@ def run_perfil(page, username: str):
         return data
 
     except Exception as e:
-        print("❌ Error:", e)
+        print("Error:", e)
         return None
