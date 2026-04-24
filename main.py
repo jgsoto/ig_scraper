@@ -1,13 +1,13 @@
 import json
-import time
-import random
 from cookies import load_cookies_playwright
 from engagement import calculate_engagement
 from browser import get_page, close_browser
 from perfil import run_perfil
-from posts import run_posts, get_comments_playwright
+from posts import run_posts
 from followers import run_followers, run_following
+from ai import IAAnalisisPerfil
 
+ia = IAAnalisisPerfil()
 cookies = load_cookies_playwright()
 
 def mostrar_menu():
@@ -17,8 +17,8 @@ def mostrar_menu():
     print("3. Seguidores")
     print("4. Seguidos")
     print("5. Engagement")
+    print("6. Análisis IA")
     print("0. Salir")
-
 
 def pedir_numero(mensaje, default):
     valor = input(f"{mensaje} (default {default}): ").strip()
@@ -111,7 +111,6 @@ def main():
 
                     followers = None
 
-                    # 🔥 obtener followers del perfil
                     if "perfil" in data and data["perfil"]:
                         followers = data["perfil"].get("followers")
 
@@ -127,6 +126,25 @@ def main():
 
                 except Exception as e:
                     print("Error engagement:", e)
+                    
+            if opcion == "6":
+                try:
+                    if "posts" not in data or not data["posts"]:
+                        print("Primero debes obtener posts (opción 2)")
+                        continue
+
+                    print("\nAnalizando posts con IA...")
+
+                    analizador = IAAnalisisPerfil()
+                    resultado = analizador.analizar(data["posts"])
+
+                    data["analysis"] = resultado
+
+                    print("\n=== RESULTADO ===")
+                    print(resultado)
+
+                except Exception as e:
+                    print("Error análisis:", e)
 
             with open(f"{username}_data.json", "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)

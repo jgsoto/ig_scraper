@@ -7,7 +7,6 @@ from urllib.parse import quote
 import requests
 from browser import get_page
 from cookies import load_cookies_dict
-from playwright.sync_api import sync_playwright
 
 GRAPHQL_URL = "https://www.instagram.com/graphql/query"
 DOC_ID = "27621586024097412"
@@ -116,30 +115,6 @@ def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
         response = request_with_retry(
             session, GRAPHQL_URL, headers, cookies, data
         )
-
-        if not response:
-            print("[-] Fallaron todos los intentos")
-            break
-
-        if response.status_code == 429:
-            print("[-] Rate limit, esperando...")
-            time.sleep(8)
-            continue
-
-        content_type = response.headers.get("Content-Type", "")
-        text_lower = response.text.lower()
-
-        if "checkpoint" in text_lower:
-            print("[-] Instagram pide verificación")
-            break
-
-        if "login" in text_lower:
-            print("[-] Sesión inválida")
-            break
-
-        if "application/json" not in content_type:
-            print(f"[-] Respuesta inválida (Status: {response.status_code})")
-            break
 
         try:
             result = response.json()
@@ -263,7 +238,6 @@ def clean_texts(spans):
 
 def get_comments_playwright(page, max_comments=5, username=""):
     comments = []
-    print("USERNAME RECIBIDO:", username)
 
     try:
 
@@ -289,7 +263,6 @@ def get_comments_playwright(page, max_comments=5, username=""):
                     if len(comment) > 150:
                         continue
                     
-                    print(f"user: '{user}' | username: '{username}'")
                     if user == username:
                         continue
 
