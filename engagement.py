@@ -3,7 +3,7 @@ def calculate_engagement(posts, followers=None):
         return {}
 
     total_likes = sum(p["likes"] for p in posts)
-    total_comments = sum(p["comments"] for p in posts)
+    total_comments = sum(p["comments_count"] for p in posts)
 
     total_engagement = total_likes + total_comments
 
@@ -11,8 +11,8 @@ def calculate_engagement(posts, followers=None):
         {
             "url": p["url"],
             "likes": p["likes"],
-            "comments": p["comments"],
-            "engagement": p["likes"] + p["comments"]
+            "comments_count": p["comments_count"],
+            "engagement": p["likes"] + p["comments_count"]
         }
         for p in posts
     ]
@@ -29,7 +29,7 @@ def calculate_engagement(posts, followers=None):
     if followers and followers > 0:
         engagement_rate_followers = total_engagement / followers
 
-    values = [p["likes"] + p["comments"] for p in posts]
+    values = [p["likes"] + p["comments_count"] for p in posts]
     variance = sum((x - avg_engagement) ** 2 for x in values) / len(values)
 
     return {
