@@ -5,7 +5,7 @@ _playwright = None
 _browser = None
 
 
-def get_browser(headless=False):
+def get_browser(headless=True):
     global _playwright, _browser
 
     if _browser is None:
@@ -15,7 +15,7 @@ def get_browser(headless=False):
     return _browser
 
 
-def get_page(url: str, headless=False):
+def get_page(url: str, headless=True):
     browser = get_browser(headless)
     context = browser.new_context()
 

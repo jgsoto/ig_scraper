@@ -34,10 +34,10 @@ def build_headers(username, cookies):
         "x-root-field-name": "xdt_api__v1__feed__user_timeline_graphql_connection",
     }
 
-def build_data(username, after=None):
+def build_data(username, count, after=None):
     variables = {
         "data": {
-            "count": 12,
+            "count": count,
             "include_reel_media_seen_timestamp": True,
             "include_relationship_info": True,
             "latest_besties_reel_media": True,
@@ -92,7 +92,7 @@ def request_with_retry(session, url, headers, cookies, data, retries=3):
             time.sleep(2)
     return None
 
-def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
+def run_posts(username, get_comments=True, max_comments=3, count=12):
     cookies = load_cookies_dict()
 
     if not cookies:
@@ -106,15 +106,21 @@ def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
     after = None
     all_posts = []
     seen = set()
+    page_num = 1
 
-    for page in range(max_pages):
-        print(f"[+] Página {page + 1}")
+    while len(all_posts) < count:
+        print(f"[+] Página {page_num}")
 
-        data = build_data(username, after)
+        remaining = min(12, count - len(all_posts))
+
+        data = build_data(username, count=remaining, after=after)
 
         response = request_with_retry(
             session, GRAPHQL_URL, headers, cookies, data
         )
+
+        if not response:
+            break
 
         try:
             result = response.json()
@@ -134,10 +140,6 @@ def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
             or data_json.get("user")
             or {}
         )
-
-        if not timeline:
-            print("[-] Timeline no encontrado")
-            break
 
         edges = timeline.get("edges", [])
 
@@ -184,8 +186,14 @@ def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
 
                 all_posts.append(post_data)
 
+                if len(all_posts) >= count:
+                    break
+
             except Exception:
                 continue
+
+        if len(all_posts) >= count:
+            break
 
         page_info = timeline.get("page_info", {})
 
@@ -194,6 +202,7 @@ def run_posts(username, max_pages=3, get_comments=True, max_comments=3):
             break
 
         after = page_info.get("end_cursor")
+        page_num += 1
 
         time.sleep(random.uniform(1.5, 3.0))
 
