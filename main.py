@@ -59,19 +59,19 @@ def main():
 
             if opcion == "2":
                 try:
-                    cantidad_posts = pedir_numero("¿Cuántos posts quieres?", 12)
+                    cantidad_posts = pedir_numero(
+                        "¿Cuántos posts quieres?", 12
+                    )
 
                     cantidad_posts = min(cantidad_posts, 100)
 
-                    max_pages = max(1, (cantidad_posts // 12) + 1)
+                    print(f"\nObteniendo {cantidad_posts} posts...")
 
-                    print(f"\nPosts (~{cantidad_posts})...")
-                    posts = run_posts(username, max_pages=max_pages)
+                    data["posts"] = run_posts(
+                        username,
+                        count=cantidad_posts
+                    )
 
-                    posts = posts[:cantidad_posts]
-                    
-                    data["posts"] = posts
-   
                 except Exception as e:
                     print("Error posts:", e)
                     data["posts"] = []
