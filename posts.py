@@ -213,14 +213,14 @@ def run_posts(username, get_comments=True, max_comments=3, count=12):
     )
     
 def is_time(text):
-    return any(x in text for x in ["sem", "h", "d", "min"])
+    return any(x in text for x in ["sem", "h", "d", "min", "w", "m"])
 
 
 def is_noise(text):
     ruido = [
         "Me gusta", "Responder", "Ver", "Editado",
         "Explorar", "Búsqueda", "Mensajes", "Más",
-        "También de Meta", "Inicio", "Perfil"
+        "También de Meta", "Inicio", "Perfil", "Reply", "likes", "like"
     ]
     return any(r in text for r in ruido)
 
