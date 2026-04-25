@@ -35,6 +35,7 @@ class IAAnalisisPerfil:
 
         - Tipo de contenido (personal, marketing, lifestyle, etc)
         - Tono (emocional, promocional, motivacional, etc)
+        - Recepciòn (en base a los comentarios)
         - Audiencia (qué tipo de personas interactúan)
         - Nivel de engagement (alto, medio, bajo)
         - Temas principales

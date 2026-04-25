@@ -92,7 +92,7 @@ def request_with_retry(session, url, headers, cookies, data, retries=3):
             time.sleep(2)
     return None
 
-def run_posts(username, get_comments=True, max_comments=3, count=12):
+def run_posts(username, get_comments=True, max_comments=10, count=12):
     cookies = load_cookies_dict()
 
     if not cookies:
@@ -213,14 +213,14 @@ def run_posts(username, get_comments=True, max_comments=3, count=12):
     )
     
 def is_time(text):
-    return any(x in text for x in ["sem", "h", "d", "min", "w", "m"])
+    return any(x in text for x in ["sem", "h", "d", "min", "w", "m", "k"])
 
 
 def is_noise(text):
     ruido = [
         "Me gusta", "Responder", "Ver", "Editado",
         "Explorar", "Búsqueda", "Mensajes", "Más",
-        "También de Meta", "Inicio", "Perfil", "Reply", "likes", "like"
+        "También de Meta", "Inicio", "Perfil", "Reply", "likes", "like","See translation"
     ]
     return any(r in text for r in ruido)
 
